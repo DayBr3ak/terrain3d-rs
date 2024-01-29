@@ -1,0 +1,21 @@
+[package]
+name = "hellobindings"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
+
+[dependencies]
+anyhow = "1.0.79"
+godot = { git = "https://github.com/godot-rust/gdext", branch = "master" }
+
+[profile.release]
+opt-level = 3 #'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = 'abort'     # Abort on panic
+strip = true        # Strip symbols from binary*
+debug = false
