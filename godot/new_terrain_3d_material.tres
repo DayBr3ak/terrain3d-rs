@@ -1,0 +1,4 @@
+[gd_resource type="Terrain3DMaterial" format=3 uid="uid://npo2drjwvayk"]
+
+[resource]
+dual_scaling = true

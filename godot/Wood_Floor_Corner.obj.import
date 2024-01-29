@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bnwl15o7w7fx"
+path="res://.godot/imported/Wood_Floor_Corner.obj-78824c01986fac6e464b2e1f53f912be.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wood_Floor_Corner.obj-78824c01986fac6e464b2e1f53f912be.mesh"]
+
+source_file="res://Wood_Floor_Corner.obj"
+dest_files=["res://.godot/imported/Wood_Floor_Corner.obj-78824c01986fac6e464b2e1f53f912be.mesh", "res://.godot/imported/Wood_Floor_Corner.obj-78824c01986fac6e464b2e1f53f912be.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false
