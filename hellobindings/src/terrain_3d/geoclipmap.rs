@@ -7,6 +7,22 @@ use super::utils::rs;
 
 pub struct GeoClipMap {}
 
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy, Var)]
+#[repr(usize)]
+pub enum MeshType {
+    TILE = 0,
+    FILLER = 1,
+    TRIM = 2,
+    CROSS = 3,
+    SEAM = 4,
+}
+
+impl MeshType {
+    pub fn ord(self) -> usize {
+        return self as usize;
+    }
+}
+
 impl GeoClipMap {
     const __CLASS__: &'static str = "Terrain3DGeoClipMap";
 
@@ -325,7 +341,7 @@ impl GeoClipMap {
             }
 
             let start_of_vertical = n as i32;
-            for i in 0..(patch_vert_resolution * 2)  as i32 {
+            for i in 0..(patch_vert_resolution * 2) as i32 {
                 vertices_mut[n] = Vector3::new(0.0, 0.0, (i - tile_resolution as i32) as f32);
                 aabb.expand(vertices_mut[n]);
                 n += 1;
@@ -412,7 +428,8 @@ impl GeoClipMap {
                 aabb.expand(vertices_mut[n]);
 
                 n = clipmap_resolution * 3 + i as usize;
-                vertices_mut[n] = Vector3::new(0.0, 0.0, (clipmap_vert_resolution as i32 - i) as f32);
+                vertices_mut[n] =
+                    Vector3::new(0.0, 0.0, (clipmap_vert_resolution as i32 - i) as f32);
                 aabb.expand(vertices_mut[n]);
             }
 

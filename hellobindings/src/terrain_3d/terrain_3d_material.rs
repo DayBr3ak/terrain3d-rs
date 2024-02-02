@@ -32,6 +32,7 @@ pub struct Terrain3DMaterial {
     base: Base<Resource>,
     initialized: bool,
 
+    #[var(get = get_material_rid)]
     material: Rid,
     shader: Rid,
 
@@ -158,6 +159,11 @@ impl Terrain3DMaterial {
             "_region_pixel_size".into(),
             Variant::from(1.0f64 / self.region_size as f64),
         );
+    }
+
+    #[func]
+    pub fn get_material_rid(&self) -> Rid {
+        self.material
     }
 
     pub fn initialize(&mut self, region_size: i32) {

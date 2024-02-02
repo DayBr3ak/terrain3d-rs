@@ -28,3 +28,11 @@ macro_rules! log_debug {
         crate::godot_print!("[DBG]  {}:: {}", $self::__CLASS__, format!($fmt $(, $args)*))
     };
 }
+
+#[macro_export]
+macro_rules! log_warn {
+    ($self:ident, $fmt:literal $(, $args:expr)* $(,)?) => {
+        crate::godot_print!("[WARN] {}:: {}", $self::__CLASS__, format!($fmt $(, $args)*))
+    };
+}
+

@@ -1,12 +1,15 @@
 use anyhow::{anyhow, Result};
+use godot::engine::rendering_server::ShadowCastingSetting;
 use godot::engine::utilities::printerr;
-use godot::engine::{EditorScript, Engine, INode3D, Node, Node3D, Sprite2D};
+use godot::engine::{EditorScript, Engine, INode3D, Node, Node3D, Sprite2D, StaticBody3D};
 use godot::prelude::*;
 
-use crate::terrain_3d::geoclipmap::GeoClipMap;
+use crate::terrain_3d::geoclipmap::*;
 use crate::terrain_3d::terrain_3d_material::Terrain3DMaterial;
 use crate::terrain_3d::utils::rs;
 use crate::{log_debug, log_error, log_info};
+
+use super::terrain_3d_storage::Terrain3DStorage;
 
 #[derive(Default)]
 struct Instances {
@@ -28,8 +31,8 @@ pub struct Terrain3D {
     mesh_size: i32,
     mesh_lods: i32,
 
-    storage: Option<Gd<Sprite2D>>,
-    material: Gd<Terrain3DMaterial>,
+    storage: Option<Gd<Terrain3DStorage>>,
+    material: Option<Gd<Terrain3DMaterial>>,
     texture_list: Option<Gd<Sprite2D>>,
 
     // Current editor or gameplay camera we are centering the terrain on.
@@ -43,6 +46,17 @@ pub struct Terrain3D {
 
     // Renderer settings
     render_layers: u32,
+    shadow_casting: ShadowCastingSetting,
+    cull_margin: real,
+
+    // Physics body and settings
+    static_body: Rid,
+    debug_static_body: Option<Gd<StaticBody3D>>,
+    collision_enabled: bool,
+    show_debug_collision: bool,
+    collision_layer: u32,
+    collision_mask: u32,
+    collision_priority: real,
 }
 
 #[godot_api]
@@ -56,13 +70,22 @@ impl INode3D for Terrain3D {
             mesh_size: 48,
             mesh_lods: 7,
             storage: None,
-            material: Gd::default(),
+            material: None,
             texture_list: None,
             camera: None,
             camera_last_position: Vector2::new(f32::MAX, f32::MAX),
             meshes: Vec::new(),
             data: Instances::default(),
             render_layers: 1,
+            shadow_casting: ShadowCastingSetting::ON,
+            cull_margin: 0.0,
+            static_body: Rid::Invalid,
+            debug_static_body: None,
+            collision_enabled: true,
+            show_debug_collision: false,
+            collision_layer: 1,
+            collision_mask: 1,
+            collision_priority: 1.0,
         }
     }
 
@@ -115,19 +138,36 @@ impl Terrain3D {
             "Checking material, storage, texture_list, signal, and mesh initialization"
         );
 
-        // // Make blank objects if needed
-        // if !self.material.is_instance_valid() {
-        //     xgodot_print!("Creating blank material");
-        //     self.material = Terrain3DMaterial::init_internal();
-        // }
+        // Make blank objects if needed
+        if self.material.is_none() {
+            log_debug!(Self, "Creating blank material");
+            self.material = Some(
+                Terrain3DMaterial::new_gd()
+            );
+        }
+        if self.storage.is_none() {
+            log_debug!(Self, "Creating blank storage");
+            let mut st = Terrain3DStorage::new_gd();
+            st.bind_mut().set_version(Terrain3DStorage::CURRENT_VERSION);
+            self.storage = Some(
+                st
+            );
+        }
 
         // Initialize the system
         if !self.initialized && /*self.is_inside_world &&*/ self.base().is_inside_tree() {
             log_debug!(Self, "inite");
-            let storage_region_size = 1024;
-            self.material.bind_mut().initialize(storage_region_size);
+            match (self.storage.as_mut(), self.material.as_mut()) {
+                (Some(storage), Some(material)) => {
+                    material.bind_mut().initialize(storage.bind().get_region_size());
+                    storage.bind_mut().update_regions(true); // generate map arrays
+                },
+                _ => {
+                    return Err(anyhow!("Storage or material not valid"));
+                }
+            }
             self.build()?;
-            // self.initialized = true;
+            self.initialized = true;
         }
         Ok(())
     }
@@ -280,8 +320,7 @@ impl Terrain3D {
     }
 
     fn build(&mut self) -> Result<()> {
-        if !self.base().is_inside_tree()
-        /* || self.storage.is_valid() */
+        if !self.base().is_inside_tree() && self.storage.is_none()
         {
             log_debug!(
                 Self,
@@ -297,7 +336,75 @@ impl Terrain3D {
             return Err(anyhow!("{}:: Meshes are empty", "build"));
         }
 
+        // Set the current terrain material on all meshes
+        if let Some(mat) = self.material.clone() {
+            let material_rid = mat.bind().get_material_rid();
+            for rid in &self.meshes {
+                rs().mesh_surface_set_material(rid.clone(), 0, material_rid);
+            }
+        } else {
+            return Err(anyhow!("{}:: material is empty", "build"));
+        }
+
+        log_debug!(Self, "Creating mesh instances");
+        // Get current visual scenario so the instances appear in the scene
+        let scenario = self
+            .base()
+            .get_world_3d()
+            .and_then(|w| Some(w.get_scenario()));
+        if scenario.is_none() {
+            return Err(anyhow!("{}:: Could not acquire world_3d scenario", "build"));
+        }
+        let scenario = scenario.unwrap();
+        let cross = rs().instance_create2(self.meshes[MeshType::CROSS.ord()], scenario);
+        rs().instance_geometry_set_cast_shadows_setting(cross, self.shadow_casting);
+	    rs().instance_set_layer_mask(cross, self.render_layers);
+        self.data.cross = Some(cross);
+
+        for l in 0..self.mesh_lods {
+            for x in 0..4 {
+                for y in 0..4 {
+                    if l != 0 && (x == 1 || x == 2) && (y == 1 || y == 2) {
+                        continue;
+                    }
+
+                    let tile = rs().instance_create2(self.meshes[MeshType::TILE.ord()], scenario);
+                    rs().instance_geometry_set_cast_shadows_setting(tile, self.shadow_casting);
+                    rs().instance_set_layer_mask(tile, self.render_layers);
+                    self.data.tiles.push(tile);
+                }
+            }
+
+            let filler = rs().instance_create2(self.meshes[MeshType::FILLER.ord()], scenario);
+            rs().instance_geometry_set_cast_shadows_setting(filler, self.shadow_casting);
+            rs().instance_set_layer_mask(filler, self.render_layers);
+            self.data.fillers.push(filler);
+
+            if l != self.mesh_lods - 1 {
+                let trim = rs().instance_create2(self.meshes[MeshType::TRIM.ord()], scenario);
+                rs().instance_geometry_set_cast_shadows_setting(trim, self.shadow_casting);
+                rs().instance_set_layer_mask(trim, self.render_layers);
+                self.data.trims.push(trim);
+
+                let seam = rs().instance_create2(self.meshes[MeshType::SEAM.ord()], scenario);
+                rs().instance_geometry_set_cast_shadows_setting(seam, self.shadow_casting);
+                rs().instance_set_layer_mask(seam, self.render_layers);
+                self.data.seams.push(seam);
+            }
+        }
+
+        // self.update_aabbs();
+        // Force a snap update
+	    self.camera_last_position = Vector2::new(real::MAX, real::MAX);
+
         Ok(())
+    }
+
+    fn update_aabbs(&mut self) {
+        if self.meshes.is_empty() || self.storage.is_none() {
+            log_debug!(Self, "Update AABB called before terrain meshes built. Returning.");
+            return;
+        }
     }
 }
 
