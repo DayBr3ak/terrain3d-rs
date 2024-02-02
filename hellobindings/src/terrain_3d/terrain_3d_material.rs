@@ -6,6 +6,8 @@ use godot::engine::fast_noise_lite::{
 use godot::engine::{FastNoiseLite, Gradient, INode3D, NoiseTexture2D, Resource, Shader, Texture};
 use godot::prelude::*;
 
+use crate::{log_debug, log_error, log_info};
+
 use super::terrain_3d_core::{LogLevel, Terrain3D};
 use super::utils::rs;
 
@@ -135,13 +137,13 @@ impl Terrain3DMaterial {
 
     #[func]
     pub fn set_dual_scaling(&mut self, dual_scaling: bool) {
-        godot_print!("New scaling: {dual_scaling}");
+        log_debug!(Self, "New scaling: {dual_scaling}");
         self.dual_scaling = dual_scaling;
     }
 
     #[func]
     pub fn set_region_size(&mut self, region_size: i32) {
-        godot_print!("Setting region size in material: {region_size}");
+        log_debug!(Self, "Setting region size in material: {region_size}");
 
         self.region_size = region_size.clamp(64, 4096);
         self.region_sizev = Vector2i::new(self.region_size, self.region_size);
@@ -159,14 +161,14 @@ impl Terrain3DMaterial {
     }
 
     pub fn initialize(&mut self, region_size: i32) {
-        godot_print!("Initializing material");
+        log_info!(Self, "Initializing material");
         self.preload_shaders();
 
         self.material = rs().material_create();
         self.shader = rs().shader_create();
 
         self.set_region_size(region_size);
-        godot_print!("Mat RID: {}, _shader RID: {}", self.material, self.shader);
+        log_debug!(Self, "Mat RID: {}, _shader RID: {}", self.material, self.shader);
 
         self.initialized = true;
         self.update_shader();
@@ -178,7 +180,7 @@ impl Terrain3DMaterial {
             return;
         }
 
-        godot_print!("Updating Shader");
+        log_info!(Self, "Updating Shader");
         let mut shader_rid: Option<Rid> = None;
         let shader_ov = if self.shader_override_enable {
             self.shader_override.as_mut()
@@ -197,7 +199,7 @@ impl Terrain3DMaterial {
             let callable = s.callable("update_shader");
 
             if !shader_override.is_connected("changed".into(), callable.clone()) {
-                godot_print!("Connecting changed signal to _update_shader()");
+                log_debug!(Self, "Connecting changed signal to _update_shader()");
                 shader_override.connect("changed".into(), callable);
             }
             let code = shader_override.get_code().to_string();
@@ -213,7 +215,8 @@ impl Terrain3DMaterial {
 
         if let Some(shader_rid) = shader_rid {
             rs().material_set_shader(self.material, shader_rid);
-            godot_print!(
+            log_debug!(
+                Self,
                 "Material rid: {}, shader rid: {}",
                 self.material,
                 shader_rid
@@ -230,7 +233,7 @@ impl Terrain3DMaterial {
         };
 
         // Fetch saved shader parameters, converting textures to RIDs
-        godot_print!("Before setting texture to mats");
+        log_info!(Self, "Before setting texture to mats");
         for param in self.active_params.iter() {
             let value = self.shader_params.get(param);
             if let Some(value) = value {
@@ -263,7 +266,7 @@ impl Terrain3DMaterial {
                 .get_type()
                 == VariantType::Nil
         {
-            godot_print!("Generating default noise_texture for shader");
+            log_info!(Self, "Generating default noise_texture for shader");
 
             let mut fnoise = FastNoiseLite::new_gd();
             fnoise.set_noise_type(NoiseType::CELLULAR);
@@ -394,7 +397,7 @@ impl Terrain3DMaterial {
     }
 
     fn generate_shader_code(&self) -> String {
-        godot_print!("Generating default shader code");
+        log_info!(Self, "Generating default shader code");
 
         let mut excludes: Vec<&str> = Vec::new();
         if self.world_background != WorldBackground::Noise {
@@ -481,7 +484,7 @@ impl Terrain3DMaterial {
 
         if Terrain3D::debug_level() >= &LogLevel::DEBUG {
             for key in self.shader_code.keys() {
-                godot_print!("Loaded shader insert: {}", key);
+                log_debug!(Self, "Loaded shader insert: {}", key);
             }
         }
     }
@@ -489,7 +492,7 @@ impl Terrain3DMaterial {
     fn parse_shader(&mut self, p_shader: &str, p_name: &str) {
         if p_name.is_empty() {
             // push_error(Variant::from("No dictionary key for saving shader snippets specified"));
-            godot_error!("No dictionary key for saving shader snippets specified");
+            log_error!(Self, "No dictionary key for saving shader snippets specified");
             // godot_script_error!();
             return;
         }

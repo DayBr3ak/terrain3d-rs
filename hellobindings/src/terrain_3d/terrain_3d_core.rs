@@ -3,6 +3,7 @@ use godot::engine::utilities::printerr;
 use godot::engine::{EditorScript, Engine, INode3D, Node, Node3D, Sprite2D};
 use godot::prelude::*;
 
+use crate::{log_debug, log_error, log_info};
 use crate::terrain_3d::geoclipmap::GeoClipMap;
 use crate::terrain_3d::terrain_3d_material::Terrain3DMaterial;
 use crate::terrain_3d::utils::rs;
@@ -69,8 +70,7 @@ impl INode3D for Terrain3D {
         match self.initialize() {
             Ok(_) => self.base_mut().set_process(true),
             Err(err) => {
-                godot_print!("!ERR::{}", err);
-                godot_error!("!ERR::{}", err);
+                log_error!(Self, "{}", err);
             }
         }
     }
@@ -82,7 +82,7 @@ impl INode3D for Terrain3D {
 
         // If the game/editor camera is not set, find it
         if self.camera().is_none() {
-            godot_print!("camera is null, getting the current one");
+            log_debug!(Self, "camera is null, getting the current one");
             self.grab_camera();
         }
 
@@ -110,17 +110,17 @@ impl Terrain3D {
     }
 
     fn initialize(&mut self) -> Result<()> {
-        godot_print!("Checking material, storage, texture_list, signal, and mesh initialization");
+        log_info!(Self, "Checking material, storage, texture_list, signal, and mesh initialization");
 
         // // Make blank objects if needed
         // if !self.material.is_instance_valid() {
-        //     godot_print!("Creating blank material");
+        //     xgodot_print!("Creating blank material");
         //     self.material = Terrain3DMaterial::init_internal();
         // }
 
         // Initialize the system
         if !self.initialized && /*self.is_inside_world &&*/ self.base().is_inside_tree() {
-            godot_print!("inite");
+            log_debug!(Self, "inite");
             let storage_region_size = 1024;
             self.material.bind_mut().initialize(storage_region_size);
             self.build()?;
@@ -155,17 +155,17 @@ impl Terrain3D {
                 let mut cam_array = Vec::<Gd<Camera3D>>::new();
                 Self::find_cameras(from_nodes, &excluded_node, &mut cam_array);
                 if !cam_array.is_empty() {
-                    godot_print!("Connecting to the first editor camera");
+                    log_debug!(Self, "Connecting to the first editor camera");
                     self.camera = Some(cam_array[0].clone());
                 }
             }
         } else {
-            godot_print!("Connecting to the in-game viewport camera");
+            log_debug!(Self, "Connecting to the in-game viewport camera");
             self.camera = self.base().get_viewport().and_then(|v| v.get_camera_3d());
         }
         if self.camera.is_none() {
             self.base_mut().set_process(false);
-            godot_error!("Cannot find active camera. Stopping _process()");
+            log_error!(Self, "Cannot find active camera. Stopping _process()");
         }
     }
 
@@ -183,7 +183,7 @@ impl Terrain3D {
                 Self::find_cameras(node.get_children(), excluded_node, cam_array);
             }
             if node.is_class(cam_str.clone()) {
-                godot_print!("Found a Camera3D at: {}", node.get_path());
+                log_debug!(Self, "Found a Camera3D at: {}", node.get_path());
                 let maybe_cam = node.try_cast::<Camera3D>();
                 match maybe_cam {
                     Ok(cam) => cam_array.push(cam),
@@ -200,7 +200,7 @@ impl Terrain3D {
         p_cam_pos.y = 0.0;
         let rotations = [0f64, 270., 90., 180.];
 
-        godot_print!("Snapping terrain to: {:?}", p_cam_pos);
+        log_debug!(Self, "Snapping terrain to: {:?}", p_cam_pos);
 
         let transform = Transform3D::new(Basis::default(), p_cam_pos.floor());
         if let Some(cross) = self.data.cross {
@@ -280,17 +280,16 @@ impl Terrain3D {
         if !self.base().is_inside_tree()
         /* || self.storage.is_valid() */
         {
-            godot_print!("Not inside the tree or no valid storage, skipping build");
+            log_debug!(Self, "Not inside the tree or no valid storage, skipping build");
             return Ok(());
         }
-        godot_print!("Building the terrain meshes");
+        log_info!(Self, "Building the terrain meshes");
 
         // Generate terrain meshes, lods, seams
         self.meshes = GeoClipMap::generate(self.mesh_size, self.mesh_lods);
         if self.meshes.is_empty() {
             return Err(anyhow!(
-                "{}::{}:: Meshes are empty",
-                Self::__CLASS__,
+                "{}:: Meshes are empty",
                 "build"
             ));
         }
