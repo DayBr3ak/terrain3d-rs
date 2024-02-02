@@ -3,10 +3,10 @@ use godot::engine::utilities::printerr;
 use godot::engine::{EditorScript, Engine, INode3D, Node, Node3D, Sprite2D};
 use godot::prelude::*;
 
-use crate::{log_debug, log_error, log_info};
 use crate::terrain_3d::geoclipmap::GeoClipMap;
 use crate::terrain_3d::terrain_3d_material::Terrain3DMaterial;
 use crate::terrain_3d::utils::rs;
+use crate::{log_debug, log_error, log_info};
 
 #[derive(Default)]
 struct Instances {
@@ -110,7 +110,10 @@ impl Terrain3D {
     }
 
     fn initialize(&mut self) -> Result<()> {
-        log_info!(Self, "Checking material, storage, texture_list, signal, and mesh initialization");
+        log_info!(
+            Self,
+            "Checking material, storage, texture_list, signal, and mesh initialization"
+        );
 
         // // Make blank objects if needed
         // if !self.material.is_instance_valid() {
@@ -280,7 +283,10 @@ impl Terrain3D {
         if !self.base().is_inside_tree()
         /* || self.storage.is_valid() */
         {
-            log_debug!(Self, "Not inside the tree or no valid storage, skipping build");
+            log_debug!(
+                Self,
+                "Not inside the tree or no valid storage, skipping build"
+            );
             return Ok(());
         }
         log_info!(Self, "Building the terrain meshes");
@@ -288,10 +294,7 @@ impl Terrain3D {
         // Generate terrain meshes, lods, seams
         self.meshes = GeoClipMap::generate(self.mesh_size, self.mesh_lods);
         if self.meshes.is_empty() {
-            return Err(anyhow!(
-                "{}:: Meshes are empty",
-                "build"
-            ));
+            return Err(anyhow!("{}:: Meshes are empty", "build"));
         }
 
         Ok(())

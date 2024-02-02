@@ -168,7 +168,12 @@ impl Terrain3DMaterial {
         self.shader = rs().shader_create();
 
         self.set_region_size(region_size);
-        log_debug!(Self, "Mat RID: {}, _shader RID: {}", self.material, self.shader);
+        log_debug!(
+            Self,
+            "Mat RID: {}, _shader RID: {}",
+            self.material,
+            self.shader
+        );
 
         self.initialized = true;
         self.update_shader();
@@ -492,7 +497,10 @@ impl Terrain3DMaterial {
     fn parse_shader(&mut self, p_shader: &str, p_name: &str) {
         if p_name.is_empty() {
             // push_error(Variant::from("No dictionary key for saving shader snippets specified"));
-            log_error!(Self, "No dictionary key for saving shader snippets specified");
+            log_error!(
+                Self,
+                "No dictionary key for saving shader snippets specified"
+            );
             // godot_script_error!();
             return;
         }
