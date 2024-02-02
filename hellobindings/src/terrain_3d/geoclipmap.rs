@@ -86,8 +86,8 @@ impl GeoClipMap {
 
             n = 0;
             let indices_mut = indices.as_mut_slice();
-            for y in 0..patch_vert_resolution {
-                for x in 0..patch_vert_resolution {
+            for y in 0..tile_resolution {
+                for x in 0..tile_resolution {
                     indices_mut[n] = Self::patch_2d(x, y, patch_vert_resolution);
                     n += 1;
                     indices_mut[n] = Self::patch_2d(x + 1, y + 1, patch_vert_resolution);
@@ -243,7 +243,7 @@ impl GeoClipMap {
             );
             let vertices_mut = vertices.as_mut_slice();
 
-            for i in 0..=clipmap_vert_resolution {
+            for i in 0..(clipmap_vert_resolution + 1) {
                 vertices_mut[n] =
                     Vector3::new(0.0, 0.0, (clipmap_vert_resolution - i) as f32) - offset;
                 aabb.expand(vertices_mut[n]);
